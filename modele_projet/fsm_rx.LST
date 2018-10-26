@@ -1,0 +1,496 @@
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 1   
+
+
+C51 COMPILER V6.14, COMPILATION OF MODULE FSM_RX
+OBJECT MODULE PLACED IN .\fsm_rx.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE .\fsm_rx.c INTVECTOR(0X8100) DEBUG OBJECTEXTEND CODE LISTINCLUDE SYMBOLS
+
+stmt level    source
+
+   1          #include "fsm_rx.h"
+   1      =1  #ifndef FSM_RX
+   2      =1  #define FSM_RX
+   3      =1  
+   4      =1  
+   5      =1  /*****************************************/
+   6      =1  /* defines                               */
+   7      =1  /*****************************************/
+   8      =1  
+   9      =1  
+  10      =1  /*****************************************/
+  11      =1  /* typedefs                              */
+  12      =1  /*****************************************/
+  13      =1  
+  14      =1  
+  15      =1  /*****************************************/
+  16      =1  /* variables                             */
+  17      =1  /*****************************************/
+  18      =1  
+  19      =1  
+  20      =1  /*****************************************/
+  21      =1  /* public                                */
+  22      =1  /*****************************************/
+  23      =1  
+  24      =1  void fsm_rx_update(void);
+  25      =1  char fsm_rx_get_rx_data();
+  26      =1  void fsm_rx_set_rx_bit(bit rx_bit);
+  27      =1  
+  28      =1  /*****************************************/
+  29      =1  /* private                               */
+  30      =1  /*****************************************/
+  31      =1  
+  32      =1  
+  33      =1  #endif // FSM_RX
+   2          
+   3          /*****************************************/
+   4          /* defines                               */
+   5          /*****************************************/
+   6          
+   7          #define RX_STATE_S0 0
+   8          #define RX_STATE_S1 1
+   9          #define RX_STATE_S2 2
+  10          #define RX_STATE_S3 3
+  11          #define RX_STATE_S4 4
+  12          #define RX_STATE_S5 5
+  13          
+  14          
+  15          /*****************************************/
+  16          /* typedefs                              */
+  17          /*****************************************/
+  18          
+  19          typedef struct {
+  20          	int  fsm_state;
+  21          	int  nb_bit;
+  22          	int  logic_counter;
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 2   
+
+  23          	char data_is_ready;
+  24          	char data_ready;
+  25          	char data_partial;
+  26          } fsm_rx_vars_t;
+  27          
+  28          /*****************************************/
+  29          /* variables                             */
+  30          /*****************************************/
+  31          
+  32          fsm_rx_vars_t fsm_rx_vars;
+  33          bit  fsm_rx_bit;
+  34          
+  35          /*****************************************/
+  36          /* prototypes                            */
+  37          /*****************************************/
+  38          
+  39          void fsm_rx_execute_state(void);
+  40          void fsm_rx_change_state(void);
+  41          
+  42          /*****************************************/
+  43          /* public                                */
+  44          /*****************************************/
+  45          
+  46          void fsm_rx_init() {
+  47   1      	fsm_rx_vars.fsm_state = RX_STATE_S0;
+  48   1      	fsm_rx_vars.nb_bit = 0;
+  49   1      	fsm_rx_vars.logic_counter = 0;
+  50   1      	fsm_rx_vars.data_is_ready = 0;
+  51   1      	fsm_rx_vars.data_ready = 0;
+  52   1      	fsm_rx_vars.data_partial = 0;
+  53   1      }
+  54          
+  55          void fsm_rx_update() {
+  56   1      	fsm_rx_execute_state();
+  57   1      	fsm_rx_change_state();
+  58   1      }
+  59          
+  60          char fsm_rx_get_rx_data() {
+  61   1      	if (fsm_rx_vars.data_is_ready == (char) 1) {
+  62   2      		fsm_rx_vars.data_is_ready = 0;
+  63   2      		return fsm_rx_vars.data_ready;
+  64   2      	}
+  65   1      
+  66   1      	return 0xFF;
+  67   1      }
+  68          
+  69          void fsm_rx_set_rx_bit(bit rx_bit) {
+  70   1      	fsm_rx_bit = rx_bit;
+  71   1      }
+  72          
+  73          /*****************************************/
+  74          /* private                               */
+  75          /*****************************************/
+  76          char moved_bit;
+  77          void fsm_rx_execute_state(void) {
+  78   1      	switch(fsm_rx_vars.fsm_state) {
+  79   2      		case RX_STATE_S0:
+  80   2      			// do nothing
+  81   2      		break;
+  82   2      
+  83   2      		case RX_STATE_S1:
+  84   2      			fsm_rx_vars.logic_counter++;
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 3   
+
+  85   2      		break;
+  86   2      
+  87   2      		case RX_STATE_S2:
+  88   2      			fsm_rx_vars.logic_counter = 0;
+  89   2      			fsm_rx_vars.nb_bit = 0;
+  90   2      		break;
+  91   2      
+  92   2      		case RX_STATE_S3:
+  93   2      			fsm_rx_vars.logic_counter++;
+  94   2      		break;
+  95   2      
+  96   2      		case RX_STATE_S4:
+  97   2      			fsm_rx_vars.nb_bit++;
+  98   2      			fsm_rx_vars.logic_counter = 0;
+  99   2      			fsm_rx_vars.data_partial = (fsm_rx_vars.data_partial >> 1) & 0x7F;
+ 100   2      			moved_bit = (((char) fsm_rx_bit) << 7);
+ 101   2      			fsm_rx_vars.data_partial = fsm_rx_vars.data_partial | (((char) fsm_rx_bit) << 7);
+ 102   2      		break;
+ 103   2      
+ 104   2      		case RX_STATE_S5:
+ 105   2      			fsm_rx_vars.data_ready = fsm_rx_vars.data_partial;
+ 106   2      			fsm_rx_vars.data_is_ready = (char) 1;
+ 107   2      		break;
+ 108   2      	}
+ 109   1      }
+ 110          
+ 111          
+ 112          void fsm_rx_change_state(void) {
+ 113   1      	switch(fsm_rx_vars.fsm_state) {
+ 114   2      		case RX_STATE_S0:
+ 115   2      			if (fsm_rx_bit == (bit) 0) {
+ 116   3      				fsm_rx_vars.fsm_state = RX_STATE_S1;
+ 117   3      			}
+ 118   2      		break;
+ 119   2      		case RX_STATE_S1:
+ 120   2      			if (fsm_rx_vars.logic_counter == 5) {
+ 121   3      				fsm_rx_vars.fsm_state = RX_STATE_S2;
+ 122   3      			}
+ 123   2      		break;
+ 124   2      		case RX_STATE_S2:
+ 125   2      			fsm_rx_vars.fsm_state = RX_STATE_S3;
+ 126   2      		break;
+ 127   2      		case RX_STATE_S3:
+ 128   2      			if (fsm_rx_vars.logic_counter < 12) {
+ 129   3      				break;
+ 130   3      			}
+ 131   2      
+ 132   2      			if (fsm_rx_vars.nb_bit < 8) {
+ 133   3      				fsm_rx_vars.fsm_state = RX_STATE_S4;
+ 134   3      			} else {
+ 135   3      				fsm_rx_vars.fsm_state = RX_STATE_S5;
+ 136   3      			}
+ 137   2      		break;
+ 138   2      		case RX_STATE_S4:
+ 139   2      			fsm_rx_vars.fsm_state = RX_STATE_S3;
+ 140   2      		break;
+ 141   2      		case RX_STATE_S5:
+ 142   2      			fsm_rx_vars.fsm_state = RX_STATE_S0;
+ 143   2      		break;
+ 144   2      	}
+ 145   1      }
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 4   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION fsm_rx_init (BEGIN)
+                                           ; SOURCE LINE # 46
+                                           ; SOURCE LINE # 47
+0000 E4                CLR     A
+0001 F500        R     MOV     fsm_rx_vars,A
+0003 F500        R     MOV     fsm_rx_vars+01H,A
+                                           ; SOURCE LINE # 48
+0005 F500        R     MOV     fsm_rx_vars+02H,A
+0007 F500        R     MOV     fsm_rx_vars+03H,A
+                                           ; SOURCE LINE # 49
+0009 F500        R     MOV     fsm_rx_vars+04H,A
+000B F500        R     MOV     fsm_rx_vars+05H,A
+                                           ; SOURCE LINE # 50
+000D F500        R     MOV     fsm_rx_vars+06H,A
+                                           ; SOURCE LINE # 51
+000F F500        R     MOV     fsm_rx_vars+07H,A
+                                           ; SOURCE LINE # 52
+0011 F500        R     MOV     fsm_rx_vars+08H,A
+                                           ; SOURCE LINE # 53
+0013 22                RET     
+             ; FUNCTION fsm_rx_init (END)
+
+             ; FUNCTION fsm_rx_update (BEGIN)
+                                           ; SOURCE LINE # 55
+                                           ; SOURCE LINE # 56
+0000 120000      R     LCALL   fsm_rx_execute_state
+                                           ; SOURCE LINE # 57
+0003 020000      R     LJMP    fsm_rx_change_state
+             ; FUNCTION fsm_rx_update (END)
+
+             ; FUNCTION fsm_rx_get_rx_data (BEGIN)
+                                           ; SOURCE LINE # 60
+                                           ; SOURCE LINE # 61
+0000 E500        R     MOV     A,fsm_rx_vars+06H
+0002 B40106            CJNE    A,#01H,?C0003
+                                           ; SOURCE LINE # 62
+0005 E4                CLR     A
+0006 F500        R     MOV     fsm_rx_vars+06H,A
+                                           ; SOURCE LINE # 63
+0008 AF00        R     MOV     R7,fsm_rx_vars+07H
+000A 22                RET     
+                                           ; SOURCE LINE # 64
+000B         ?C0003:
+                                           ; SOURCE LINE # 66
+000B 7FFF              MOV     R7,#0FFH
+                                           ; SOURCE LINE # 67
+000D         ?C0004:
+000D 22                RET     
+             ; FUNCTION fsm_rx_get_rx_data (END)
+
+             ; FUNCTION fsm_rx_set_rx_bit (BEGIN)
+                                           ; SOURCE LINE # 69
+                                           ; SOURCE LINE # 70
+0000 A200        R     MOV     C,rx_bit
+0002 9200        R     MOV     fsm_rx_bit,C
+                                           ; SOURCE LINE # 71
+0004 22                RET     
+             ; FUNCTION fsm_rx_set_rx_bit (END)
+
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 5   
+
+             ; FUNCTION fsm_rx_execute_state (BEGIN)
+                                           ; SOURCE LINE # 77
+                                           ; SOURCE LINE # 78
+0000 E500        R     MOV     A,fsm_rx_vars
+0002 705B              JNZ     ?C0013
+0004 E500        R     MOV     A,fsm_rx_vars+01H
+0006 24FE              ADD     A,#0FEH
+0008 6016              JZ      ?C0009
+000A 14                DEC     A
+000B 601D              JZ      ?C0010
+000D 14                DEC     A
+000E 6023              JZ      ?C0011
+0010 14                DEC     A
+0011 6046              JZ      ?C0012
+0013 2404              ADD     A,#04H
+0015 7048              JNZ     ?C0013
+                                           ; SOURCE LINE # 79
+                                           ; SOURCE LINE # 81
+                                           ; SOURCE LINE # 83
+0017         ?C0008:
+                                           ; SOURCE LINE # 84
+0017 0500        R     INC     fsm_rx_vars+05H
+0019 E500        R     MOV     A,fsm_rx_vars+05H
+001B 7042              JNZ     ?C0013
+001D 0500        R     INC     fsm_rx_vars+04H
+001F         ?C0027:
+                                           ; SOURCE LINE # 85
+001F 22                RET     
+                                           ; SOURCE LINE # 87
+0020         ?C0009:
+                                           ; SOURCE LINE # 88
+0020 E4                CLR     A
+0021 F500        R     MOV     fsm_rx_vars+04H,A
+0023 F500        R     MOV     fsm_rx_vars+05H,A
+                                           ; SOURCE LINE # 89
+0025 F500        R     MOV     fsm_rx_vars+02H,A
+0027 F500        R     MOV     fsm_rx_vars+03H,A
+                                           ; SOURCE LINE # 90
+0029 22                RET     
+                                           ; SOURCE LINE # 92
+002A         ?C0010:
+                                           ; SOURCE LINE # 93
+002A 0500        R     INC     fsm_rx_vars+05H
+002C E500        R     MOV     A,fsm_rx_vars+05H
+002E 702F              JNZ     ?C0013
+0030 0500        R     INC     fsm_rx_vars+04H
+0032         ?C0028:
+                                           ; SOURCE LINE # 94
+0032 22                RET     
+                                           ; SOURCE LINE # 96
+0033         ?C0011:
+                                           ; SOURCE LINE # 97
+0033 0500        R     INC     fsm_rx_vars+03H
+0035 E500        R     MOV     A,fsm_rx_vars+03H
+0037 7002              JNZ     ?C0029
+0039 0500        R     INC     fsm_rx_vars+02H
+003B         ?C0029:
+                                           ; SOURCE LINE # 98
+003B E4                CLR     A
+003C F500        R     MOV     fsm_rx_vars+04H,A
+003E F500        R     MOV     fsm_rx_vars+05H,A
+                                           ; SOURCE LINE # 99
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 6   
+
+0040 E500        R     MOV     A,fsm_rx_vars+08H
+0042 A2E7              MOV     C,ACC.7
+0044 13                RRC     A
+0045 547F              ANL     A,#07FH
+0047 F500        R     MOV     fsm_rx_vars+08H,A
+                                           ; SOURCE LINE # 100
+0049 A200        R     MOV     C,fsm_rx_bit
+004B E4                CLR     A
+004C 33                RLC     A
+004D FF                MOV     R7,A
+004E C4                SWAP    A
+004F 33                RLC     A
+0050 33                RLC     A
+0051 33                RLC     A
+0052 5480              ANL     A,#080H
+0054 F500        R     MOV     moved_bit,A
+                                           ; SOURCE LINE # 101
+0056 4200        R     ORL     fsm_rx_vars+08H,A
+                                           ; SOURCE LINE # 102
+0058 22                RET     
+                                           ; SOURCE LINE # 104
+0059         ?C0012:
+                                           ; SOURCE LINE # 105
+0059 850000      R     MOV     fsm_rx_vars+07H,fsm_rx_vars+08H
+                                           ; SOURCE LINE # 106
+005C 750001      R     MOV     fsm_rx_vars+06H,#01H
+                                           ; SOURCE LINE # 107
+                                           ; SOURCE LINE # 108
+                                           ; SOURCE LINE # 109
+005F         ?C0013:
+005F 22                RET     
+             ; FUNCTION fsm_rx_execute_state (END)
+
+             ; FUNCTION fsm_rx_change_state (BEGIN)
+                                           ; SOURCE LINE # 112
+                                           ; SOURCE LINE # 113
+0000 E500        R     MOV     A,fsm_rx_vars
+0002 7068              JNZ     ?C0026
+0004 E500        R     MOV     A,fsm_rx_vars+01H
+0006 14                DEC     A
+0007 601A              JZ      ?C0017
+0009 14                DEC     A
+000A 6025              JZ      ?C0019
+000C 14                DEC     A
+000D 6029              JZ      ?C0020
+000F 14                DEC     A
+0010 604E              JZ      ?C0024
+0012 14                DEC     A
+0013 6052              JZ      ?C0025
+0015 2405              ADD     A,#05H
+0017 7053              JNZ     ?C0026
+                                           ; SOURCE LINE # 114
+0019         ?C0015:
+                                           ; SOURCE LINE # 115
+0019 200050      R     JB      fsm_rx_bit,?C0026
+                                           ; SOURCE LINE # 116
+001C 750000      R     MOV     fsm_rx_vars,#00H
+001F 750001      R     MOV     fsm_rx_vars+01H,#01H
+                                           ; SOURCE LINE # 117
+                                           ; SOURCE LINE # 118
+0022 22                RET     
+                                           ; SOURCE LINE # 119
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 7   
+
+0023         ?C0017:
+                                           ; SOURCE LINE # 120
+0023 E500        R     MOV     A,fsm_rx_vars+05H
+0025 6405              XRL     A,#05H
+0027 4500        R     ORL     A,fsm_rx_vars+04H
+0029 7041              JNZ     ?C0026
+                                           ; SOURCE LINE # 121
+002B F500        R     MOV     fsm_rx_vars,A
+002D 750002      R     MOV     fsm_rx_vars+01H,#02H
+                                           ; SOURCE LINE # 122
+                                           ; SOURCE LINE # 123
+0030 22                RET     
+                                           ; SOURCE LINE # 124
+0031         ?C0019:
+                                           ; SOURCE LINE # 125
+0031 750000      R     MOV     fsm_rx_vars,#00H
+0034 750003      R     MOV     fsm_rx_vars+01H,#03H
+                                           ; SOURCE LINE # 126
+0037 22                RET     
+                                           ; SOURCE LINE # 127
+0038         ?C0020:
+                                           ; SOURCE LINE # 128
+0038 C3                CLR     C
+0039 E500        R     MOV     A,fsm_rx_vars+05H
+003B 940C              SUBB    A,#0CH
+003D E500        R     MOV     A,fsm_rx_vars+04H
+003F 6480              XRL     A,#080H
+0041 9480              SUBB    A,#080H
+0043 4027              JC      ?C0026
+                                           ; SOURCE LINE # 129
+                                           ; SOURCE LINE # 130
+0045         ?C0021:
+                                           ; SOURCE LINE # 132
+0045 C3                CLR     C
+0046 E500        R     MOV     A,fsm_rx_vars+03H
+0048 9408              SUBB    A,#08H
+004A E500        R     MOV     A,fsm_rx_vars+02H
+004C 6480              XRL     A,#080H
+004E 9480              SUBB    A,#080H
+0050 5007              JNC     ?C0022
+                                           ; SOURCE LINE # 133
+0052 750000      R     MOV     fsm_rx_vars,#00H
+0055 750004      R     MOV     fsm_rx_vars+01H,#04H
+                                           ; SOURCE LINE # 134
+0058 22                RET     
+0059         ?C0022:
+                                           ; SOURCE LINE # 135
+0059 750000      R     MOV     fsm_rx_vars,#00H
+005C 750005      R     MOV     fsm_rx_vars+01H,#05H
+                                           ; SOURCE LINE # 136
+                                           ; SOURCE LINE # 137
+005F 22                RET     
+                                           ; SOURCE LINE # 138
+0060         ?C0024:
+                                           ; SOURCE LINE # 139
+0060 750000      R     MOV     fsm_rx_vars,#00H
+0063 750003      R     MOV     fsm_rx_vars+01H,#03H
+                                           ; SOURCE LINE # 140
+0066 22                RET     
+                                           ; SOURCE LINE # 141
+0067         ?C0025:
+                                           ; SOURCE LINE # 142
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 8   
+
+0067 E4                CLR     A
+0068 F500        R     MOV     fsm_rx_vars,A
+006A F500        R     MOV     fsm_rx_vars+01H,A
+                                           ; SOURCE LINE # 143
+                                           ; SOURCE LINE # 144
+                                           ; SOURCE LINE # 145
+006C         ?C0026:
+006C 22                RET     
+             ; FUNCTION fsm_rx_change_state (END)
+
+C51 COMPILER V6.14  FSM_RX                                                                 10/25/2018 14:44:17 PAGE 9   
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+fsm_rx_vars_t. . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  fsm_state. . . . . . . . . . . . . .  MEMBER   -----  INT      0000H  2
+  nb_bit . . . . . . . . . . . . . . .  MEMBER   -----  INT      0002H  2
+  logic_counter. . . . . . . . . . . .  MEMBER   -----  INT      0004H  2
+  data_is_ready. . . . . . . . . . . .  MEMBER   -----  CHAR     0006H  1
+  data_ready . . . . . . . . . . . . .  MEMBER   -----  CHAR     0007H  1
+  data_partial . . . . . . . . . . . .  MEMBER   -----  CHAR     0008H  1
+fsm_rx_init. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+fsm_rx_set_rx_bit. . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  rx_bit . . . . . . . . . . . . . . .  AUTO     DATA   BIT      0000H  1
+fsm_rx_vars. . . . . . . . . . . . . .  PUBLIC   DATA   STRUCT   0000H  9
+fsm_rx_bit . . . . . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+moved_bit. . . . . . . . . . . . . . .  PUBLIC   DATA   CHAR     0009H  1
+fsm_rx_change_state. . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+fsm_rx_execute_state . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+fsm_rx_update. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+fsm_rx_get_rx_data . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    250    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     10    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

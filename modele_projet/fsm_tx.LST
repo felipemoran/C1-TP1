@@ -1,0 +1,476 @@
+C51 COMPILER V6.14  FSM_TX                                                                 10/25/2018 14:23:46 PAGE 1   
+
+
+C51 COMPILER V6.14, COMPILATION OF MODULE FSM_TX
+OBJECT MODULE PLACED IN .\fsm_tx.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE .\fsm_tx.c INTVECTOR(0X8100) DEBUG OBJECTEXTEND CODE LISTINCLUDE SYMBOLS
+
+stmt level    source
+
+   1          #include "fsm_tx.h"
+   1      =1  #ifndef FSM_TX
+   2      =1  #define FSM_TX
+   3      =1  
+   4      =1  
+   5      =1  /*****************************************/
+   6      =1  /* defines                               */
+   7      =1  /*****************************************/
+   8      =1  
+   9      =1  
+  10      =1  /*****************************************/
+  11      =1  /* typedefs                              */
+  12      =1  /*****************************************/
+  13      =1  
+  14      =1  
+  15      =1  /*****************************************/
+  16      =1  /* variables                             */
+  17      =1  /*****************************************/
+  18      =1  
+  19      =1  
+  20      =1  /*****************************************/
+  21      =1  /* public                                */
+  22      =1  /*****************************************/
+  23      =1  
+  24      =1  void fsm_tx_init();
+  25      =1  void fsm_tx_update(void);
+  26      =1  void fsm_tx_set_tx_data(char tx_data_input);
+  27      =1  void fsm_tx_start_transmit(void);
+  28      =1  bit  fsm_tx_get_tx_bit(void);
+  29      =1  
+  30      =1  /*****************************************/
+  31      =1  /* private                               */
+  32      =1  /*****************************************/
+  33      =1  
+  34      =1  
+  35      =1  #endif // FSM_TX
+   2          
+   3          /*****************************************/
+   4          /* defines                               */
+   5          /*****************************************/
+   6          
+   7          #define TX_STATE_S0 0
+   8          #define TX_STATE_S1 1
+   9          #define TX_STATE_S2 2
+  10          #define TX_STATE_S3 3
+  11          #define TX_STATE_S4 4
+  12          
+  13          
+  14          /*****************************************/
+  15          /* typedefs                              */
+  16          /*****************************************/
+  17          
+  18          typedef struct {
+  19          	int fsm_state;
+  20          	int nb_bit;
+C51 COMPILER V6.14  FSM_TX                                                                 10/25/2018 14:23:46 PAGE 2   
+
+  21          	int logic_counter;
+  22          	char transmit;
+  23          	char data_next;
+  24          	char data_sending;
+  25          } fsm_tx_vars_t;
+  26          	
+  27          
+  28          /*****************************************/
+  29          /* variables                             */
+  30          /*****************************************/
+  31          
+  32          fsm_tx_vars_t fsm_tx_vars;
+  33          bit fsm_tx_bit;
+  34          
+  35          /*****************************************/
+  36          /* prototypes                            */
+  37          /*****************************************/
+  38          
+  39          void fsm_tx_execute_state(void);
+  40          void fsm_tx_change_state(void);
+  41          
+  42          /*****************************************/
+  43          /* public                                */
+  44          /*****************************************/
+  45          
+  46          void fsm_tx_init() {
+  47   1      	fsm_tx_vars.fsm_state = TX_STATE_S0;
+  48   1      	fsm_tx_vars.nb_bit = 0;
+  49   1      	fsm_tx_vars.logic_counter = 0;
+  50   1      	fsm_tx_vars.transmit = 0;
+  51   1      	fsm_tx_vars.data_next = 0;
+  52   1      	fsm_tx_vars.data_sending = 0;
+  53   1      }
+  54          
+  55          void fsm_tx_update() {
+  56   1      	fsm_tx_execute_state();
+  57   1      	fsm_tx_change_state();
+  58   1      }
+  59          
+  60          void fsm_tx_set_tx_data(char tx_data_input) {
+  61   1      	fsm_tx_vars.data_next = tx_data_input;
+  62   1      }
+  63          
+  64          void fsm_tx_start_transmit() {
+  65   1      	fsm_tx_vars.transmit = (char) 1;
+  66   1      }
+  67          
+  68          bit fsm_tx_get_tx_bit() {
+  69   1      	return fsm_tx_bit;
+  70   1      }
+  71          
+  72          /*****************************************/
+  73          /* private                               */
+  74          /*****************************************/
+  75          
+  76          void fsm_tx_execute_state(void) {
+  77   1      	switch(fsm_tx_vars.fsm_state) {
+  78   2      		case TX_STATE_S0:
+  79   2      			fsm_tx_bit = 1;
+  80   2      		break;
+  81   2      
+  82   2      		case TX_STATE_S1:
+C51 COMPILER V6.14  FSM_TX                                                                 10/25/2018 14:23:46 PAGE 3   
+
+  83   2      			fsm_tx_bit = 0;
+  84   2      			fsm_tx_vars.nb_bit = 0;
+  85   2      			fsm_tx_vars.logic_counter = 0;
+  86   2      		break;
+  87   2      
+  88   2      		case TX_STATE_S2:
+  89   2      			fsm_tx_vars.logic_counter++;
+  90   2      		break;
+  91   2      
+  92   2      		case TX_STATE_S3:
+  93   2      			fsm_tx_vars.logic_counter = 0;
+  94   2      			if (fsm_tx_vars.nb_bit < 8) {
+  95   3      					fsm_tx_bit = fsm_tx_vars.data_sending & 0x1;
+  96   3      					fsm_tx_vars.data_sending = fsm_tx_vars.data_sending >> 1;
+  97   3      			} else {
+  98   3      				fsm_tx_bit = 1;
+  99   3      			}
+ 100   2      			fsm_tx_vars.nb_bit++;
+ 101   2      		break;
+ 102   2      
+ 103   2      		case TX_STATE_S4:
+ 104   2      			fsm_tx_vars.transmit = 0;
+ 105   2      		break;
+ 106   2      	}
+ 107   1      }
+ 108          
+ 109          
+ 110          void fsm_tx_change_state(void) {
+ 111   1      	switch(fsm_tx_vars.fsm_state) {
+ 112   2      		case TX_STATE_S0:
+ 113   2      			if (fsm_tx_vars.transmit == (char) 1) {
+ 114   3      				fsm_tx_vars.fsm_state = TX_STATE_S1;
+ 115   3      				fsm_tx_vars.data_sending = fsm_tx_vars.data_next;
+ 116   3      			}
+ 117   2      		break;
+ 118   2      		case TX_STATE_S1:
+ 119   2      			fsm_tx_vars.fsm_state = TX_STATE_S2;
+ 120   2      		break;
+ 121   2      		case TX_STATE_S2:
+ 122   2      			if (fsm_tx_vars.logic_counter < 12) {
+ 123   3      				break;
+ 124   3      			}
+ 125   2      
+ 126   2      			if (fsm_tx_vars.nb_bit < 9) {
+ 127   3      				fsm_tx_vars.fsm_state = TX_STATE_S3;
+ 128   3      			} else {
+ 129   3      				fsm_tx_vars.fsm_state = TX_STATE_S4;
+ 130   3      			}
+ 131   2      		break;
+ 132   2      		case TX_STATE_S3:
+ 133   2      			fsm_tx_vars.fsm_state = TX_STATE_S2;
+ 134   2      		break;
+ 135   2      		case TX_STATE_S4:
+ 136   2      			fsm_tx_vars.fsm_state = TX_STATE_S0;
+ 137   2      		break;
+ 138   2      	}
+ 139   1      }
+C51 COMPILER V6.14  FSM_TX                                                                 10/25/2018 14:23:46 PAGE 4   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION fsm_tx_init (BEGIN)
+                                           ; SOURCE LINE # 46
+                                           ; SOURCE LINE # 47
+0000 E4                CLR     A
+0001 F500        R     MOV     fsm_tx_vars,A
+0003 F500        R     MOV     fsm_tx_vars+01H,A
+                                           ; SOURCE LINE # 48
+0005 F500        R     MOV     fsm_tx_vars+02H,A
+0007 F500        R     MOV     fsm_tx_vars+03H,A
+                                           ; SOURCE LINE # 49
+0009 F500        R     MOV     fsm_tx_vars+04H,A
+000B F500        R     MOV     fsm_tx_vars+05H,A
+                                           ; SOURCE LINE # 50
+000D F500        R     MOV     fsm_tx_vars+06H,A
+                                           ; SOURCE LINE # 51
+000F F500        R     MOV     fsm_tx_vars+07H,A
+                                           ; SOURCE LINE # 52
+0011 F500        R     MOV     fsm_tx_vars+08H,A
+                                           ; SOURCE LINE # 53
+0013 22                RET     
+             ; FUNCTION fsm_tx_init (END)
+
+             ; FUNCTION fsm_tx_update (BEGIN)
+                                           ; SOURCE LINE # 55
+                                           ; SOURCE LINE # 56
+0000 120000      R     LCALL   fsm_tx_execute_state
+                                           ; SOURCE LINE # 57
+0003 020000      R     LJMP    fsm_tx_change_state
+             ; FUNCTION fsm_tx_update (END)
+
+             ; FUNCTION _fsm_tx_set_tx_data (BEGIN)
+                                           ; SOURCE LINE # 60
+;---- Variable 'tx_data_input' assigned to Register 'R7' ----
+                                           ; SOURCE LINE # 61
+0000 8F00        R     MOV     fsm_tx_vars+07H,R7
+                                           ; SOURCE LINE # 62
+0002 22                RET     
+             ; FUNCTION _fsm_tx_set_tx_data (END)
+
+             ; FUNCTION fsm_tx_start_transmit (BEGIN)
+                                           ; SOURCE LINE # 64
+                                           ; SOURCE LINE # 65
+0000 750001      R     MOV     fsm_tx_vars+06H,#01H
+                                           ; SOURCE LINE # 66
+0003 22                RET     
+             ; FUNCTION fsm_tx_start_transmit (END)
+
+             ; FUNCTION fsm_tx_get_tx_bit (BEGIN)
+                                           ; SOURCE LINE # 68
+                                           ; SOURCE LINE # 69
+0000 A200        R     MOV     C,fsm_tx_bit
+                                           ; SOURCE LINE # 70
+0002         ?C0005:
+0002 22                RET     
+             ; FUNCTION fsm_tx_get_tx_bit (END)
+
+             ; FUNCTION fsm_tx_execute_state (BEGIN)
+                                           ; SOURCE LINE # 76
+                                           ; SOURCE LINE # 77
+C51 COMPILER V6.14  FSM_TX                                                                 10/25/2018 14:23:46 PAGE 5   
+
+0000 E500        R     MOV     A,fsm_tx_vars
+0002 7058              JNZ     ?C0014
+0004 E500        R     MOV     A,fsm_tx_vars+01H
+0006 14                DEC     A
+0007 6010              JZ      ?C0008
+0009 14                DEC     A
+000A 6019              JZ      ?C0009
+000C 14                DEC     A
+000D 601F              JZ      ?C0010
+000F 14                DEC     A
+0010 6047              JZ      ?C0013
+0012 2404              ADD     A,#04H
+0014 7046              JNZ     ?C0014
+                                           ; SOURCE LINE # 78
+0016         ?C0007:
+                                           ; SOURCE LINE # 79
+0016 D200        R     SETB    fsm_tx_bit
+                                           ; SOURCE LINE # 80
+0018 22                RET     
+                                           ; SOURCE LINE # 82
+0019         ?C0008:
+                                           ; SOURCE LINE # 83
+0019 C200        R     CLR     fsm_tx_bit
+                                           ; SOURCE LINE # 84
+001B E4                CLR     A
+001C F500        R     MOV     fsm_tx_vars+02H,A
+001E F500        R     MOV     fsm_tx_vars+03H,A
+                                           ; SOURCE LINE # 85
+0020 F500        R     MOV     fsm_tx_vars+04H,A
+0022 F500        R     MOV     fsm_tx_vars+05H,A
+                                           ; SOURCE LINE # 86
+0024 22                RET     
+                                           ; SOURCE LINE # 88
+0025         ?C0009:
+                                           ; SOURCE LINE # 89
+0025 0500        R     INC     fsm_tx_vars+05H
+0027 E500        R     MOV     A,fsm_tx_vars+05H
+0029 7031              JNZ     ?C0014
+002B 0500        R     INC     fsm_tx_vars+04H
+002D         ?C0026:
+                                           ; SOURCE LINE # 90
+002D 22                RET     
+                                           ; SOURCE LINE # 92
+002E         ?C0010:
+                                           ; SOURCE LINE # 93
+002E E4                CLR     A
+002F F500        R     MOV     fsm_tx_vars+04H,A
+0031 F500        R     MOV     fsm_tx_vars+05H,A
+                                           ; SOURCE LINE # 94
+0033 C3                CLR     C
+0034 E500        R     MOV     A,fsm_tx_vars+03H
+0036 9408              SUBB    A,#08H
+0038 E500        R     MOV     A,fsm_tx_vars+02H
+003A 6480              XRL     A,#080H
+003C 9480              SUBB    A,#080H
+003E 500E              JNC     ?C0011
+                                           ; SOURCE LINE # 95
+0040 E500        R     MOV     A,fsm_tx_vars+08H
+0042 13                RRC     A
+0043 9200        R     MOV     fsm_tx_bit,C
+                                           ; SOURCE LINE # 96
+0045 E500        R     MOV     A,fsm_tx_vars+08H
+C51 COMPILER V6.14  FSM_TX                                                                 10/25/2018 14:23:46 PAGE 6   
+
+0047 A2E7              MOV     C,ACC.7
+0049 13                RRC     A
+004A F500        R     MOV     fsm_tx_vars+08H,A
+                                           ; SOURCE LINE # 97
+004C 8002              SJMP    ?C0012
+004E         ?C0011:
+                                           ; SOURCE LINE # 98
+004E D200        R     SETB    fsm_tx_bit
+                                           ; SOURCE LINE # 99
+0050         ?C0012:
+                                           ; SOURCE LINE # 100
+0050 0500        R     INC     fsm_tx_vars+03H
+0052 E500        R     MOV     A,fsm_tx_vars+03H
+0054 7006              JNZ     ?C0014
+0056 0500        R     INC     fsm_tx_vars+02H
+0058         ?C0027:
+                                           ; SOURCE LINE # 101
+0058 22                RET     
+                                           ; SOURCE LINE # 103
+0059         ?C0013:
+                                           ; SOURCE LINE # 104
+0059 E4                CLR     A
+005A F500        R     MOV     fsm_tx_vars+06H,A
+                                           ; SOURCE LINE # 105
+                                           ; SOURCE LINE # 106
+                                           ; SOURCE LINE # 107
+005C         ?C0014:
+005C 22                RET     
+             ; FUNCTION fsm_tx_execute_state (END)
+
+             ; FUNCTION fsm_tx_change_state (BEGIN)
+                                           ; SOURCE LINE # 110
+                                           ; SOURCE LINE # 111
+0000 E500        R     MOV     A,fsm_tx_vars
+0002 705C              JNZ     ?C0025
+0004 E500        R     MOV     A,fsm_tx_vars+01H
+0006 14                DEC     A
+0007 601C              JZ      ?C0018
+0009 14                DEC     A
+000A 6020              JZ      ?C0019
+000C 14                DEC     A
+000D 6045              JZ      ?C0023
+000F 14                DEC     A
+0010 6049              JZ      ?C0024
+0012 2404              ADD     A,#04H
+0014 704A              JNZ     ?C0025
+                                           ; SOURCE LINE # 112
+0016         ?C0016:
+                                           ; SOURCE LINE # 113
+0016 E500        R     MOV     A,fsm_tx_vars+06H
+0018 6401              XRL     A,#01H
+001A 7044              JNZ     ?C0025
+                                           ; SOURCE LINE # 114
+001C F500        R     MOV     fsm_tx_vars,A
+001E 750001      R     MOV     fsm_tx_vars+01H,#01H
+                                           ; SOURCE LINE # 115
+0021 850000      R     MOV     fsm_tx_vars+08H,fsm_tx_vars+07H
+                                           ; SOURCE LINE # 116
+                                           ; SOURCE LINE # 117
+0024 22                RET     
+                                           ; SOURCE LINE # 118
+0025         ?C0018:
+C51 COMPILER V6.14  FSM_TX                                                                 10/25/2018 14:23:46 PAGE 7   
+
+                                           ; SOURCE LINE # 119
+0025 750000      R     MOV     fsm_tx_vars,#00H
+0028 750002      R     MOV     fsm_tx_vars+01H,#02H
+                                           ; SOURCE LINE # 120
+002B 22                RET     
+                                           ; SOURCE LINE # 121
+002C         ?C0019:
+                                           ; SOURCE LINE # 122
+002C C3                CLR     C
+002D E500        R     MOV     A,fsm_tx_vars+05H
+002F 940C              SUBB    A,#0CH
+0031 E500        R     MOV     A,fsm_tx_vars+04H
+0033 6480              XRL     A,#080H
+0035 9480              SUBB    A,#080H
+0037 4027              JC      ?C0025
+                                           ; SOURCE LINE # 123
+                                           ; SOURCE LINE # 124
+0039         ?C0020:
+                                           ; SOURCE LINE # 126
+0039 C3                CLR     C
+003A E500        R     MOV     A,fsm_tx_vars+03H
+003C 9409              SUBB    A,#09H
+003E E500        R     MOV     A,fsm_tx_vars+02H
+0040 6480              XRL     A,#080H
+0042 9480              SUBB    A,#080H
+0044 5007              JNC     ?C0021
+                                           ; SOURCE LINE # 127
+0046 750000      R     MOV     fsm_tx_vars,#00H
+0049 750003      R     MOV     fsm_tx_vars+01H,#03H
+                                           ; SOURCE LINE # 128
+004C 22                RET     
+004D         ?C0021:
+                                           ; SOURCE LINE # 129
+004D 750000      R     MOV     fsm_tx_vars,#00H
+0050 750004      R     MOV     fsm_tx_vars+01H,#04H
+                                           ; SOURCE LINE # 130
+                                           ; SOURCE LINE # 131
+0053 22                RET     
+                                           ; SOURCE LINE # 132
+0054         ?C0023:
+                                           ; SOURCE LINE # 133
+0054 750000      R     MOV     fsm_tx_vars,#00H
+0057 750002      R     MOV     fsm_tx_vars+01H,#02H
+                                           ; SOURCE LINE # 134
+005A 22                RET     
+                                           ; SOURCE LINE # 135
+005B         ?C0024:
+                                           ; SOURCE LINE # 136
+005B E4                CLR     A
+005C F500        R     MOV     fsm_tx_vars,A
+005E F500        R     MOV     fsm_tx_vars+01H,A
+                                           ; SOURCE LINE # 137
+                                           ; SOURCE LINE # 138
+                                           ; SOURCE LINE # 139
+0060         ?C0025:
+0060 22                RET     
+             ; FUNCTION fsm_tx_change_state (END)
+
+C51 COMPILER V6.14  FSM_TX                                                                 10/25/2018 14:23:46 PAGE 8   
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+fsm_tx_start_transmit. . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+fsm_tx_vars_t. . . . . . . . . . . . .  TYPEDEF  -----  STRUCT   -----  9
+  fsm_state. . . . . . . . . . . . . .  MEMBER   -----  INT      0000H  2
+  nb_bit . . . . . . . . . . . . . . .  MEMBER   -----  INT      0002H  2
+  logic_counter. . . . . . . . . . . .  MEMBER   -----  INT      0004H  2
+  transmit . . . . . . . . . . . . . .  MEMBER   -----  CHAR     0006H  1
+  data_next. . . . . . . . . . . . . .  MEMBER   -----  CHAR     0007H  1
+  data_sending . . . . . . . . . . . .  MEMBER   -----  CHAR     0008H  1
+fsm_tx_get_tx_bit. . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+fsm_tx_init. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+fsm_tx_vars. . . . . . . . . . . . . .  PUBLIC   DATA   STRUCT   0000H  9
+fsm_tx_bit . . . . . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+fsm_tx_change_state. . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+_fsm_tx_set_tx_data. . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  tx_data_input. . . . . . . . . . . .  * REG *  DATA   CHAR     0007H  1
+fsm_tx_execute_state . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+fsm_tx_update. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    226    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      9    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
