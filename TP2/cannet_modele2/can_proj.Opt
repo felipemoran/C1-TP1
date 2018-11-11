@@ -1,0 +1,81 @@
+### uVision2 Project, (C) Keil Software
+### Do not modify !
+
+ cExt (*.c)
+ aExt (*.a*; *.src)
+ oExt (*.obj)
+ lExt (*.lib)
+ tExt (*.txt)
+ pExt (*.plm)
+ DaveTm { 0,0,0,0,0,0,0,0 }
+
+Target (Target 1), 0x0000 // Tools: 'MCS-51'
+Target (autonome), 0x0000 // Tools: 'MCS-51'
+GRPOPT 1,(Source Group 1),1,0,0
+GRPOPT 2,(linkmoniteur),1,0,0
+GRPOPT 3,(linkfinal),1,0,0
+
+OPTFFF 1,1,1,0,0,327,343,0,<.\FonctionsBases2.c><FonctionsBases2.c> { 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,248,255,255,255,226,255,255,255,2,0,0,0,8,0,0,0,222,2,0,0,216,2,0,0 }
+OPTFFF 1,2,3,0,0,0,0,0,<.\LIBTP2.OBJ><LIBTP2.OBJ> 
+OPTFFF 2,3,4,0,0,0,0,0,<.\startupfyt.LIB><startupfyt.LIB> 
+OPTFFF 3,4,2,0,0,0,0,0,<.\Startphy0.a51><Startphy0.a51> 
+
+ExtF <.\candefs.h> 61,61,0,{ 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,248,255,255,255,226,255,255,255,102,1,0,0,210,0,0,0,54,5,0,0,72,3,0,0 }
+ExtF <.\FonctionsBases2.h> 27,27,0,{ 44,0,0,0,0,0,0,0,1,0,0,0,255,255,255,255,255,255,255,255,248,255,255,255,226,255,255,255,129,0,0,0,213,1,0,0,254,3,0,0,137,3,0,0 }
+
+TARGOPT 1, (Target 1)
+ CLK51=16000000
+  OPTTT 1,1,1,0
+  OPTHX 0,65535,0,0,0
+  OPTLX 120,65,8,<.\>
+  OPTLT 1,1,1,0,1,1,1,1,1,0,1
+  OPTXL 1,1,1,1,1,1,1,1,0
+  OPTFL 1,0,1
+  OPTBL 0,(Add on databooks)<DATASHTS\ADDBOOKS.PDF>
+  OPTBL 1,(Programmer's Guide & Instruction Set Manual)<DATASHTS\PHILIPS\UPROGGUI.PDF>
+  OPTDL (S8051.DLL)()(DP51.DLL)(-p592)(S8051.DLL)()(TP51.DLL)(-p592)
+  OPTDBG 48118,0,()()()()()()()()()() ()()()()
+  OPTKEY 0,(DLGTP51)((98=-1,-1,-1,-1,0)(82=-1,-1,-1,-1,0)(83=-1,-1,-1,-1,0)(84=-1,-1,-1,-1,0)(85=-1,-1,-1,-1,0)(5009=-1,-1,-1,-1,0)(5010=-1,-1,-1,-1,0)(80=-1,-1,-1,-1,0)(91=-1,-1,-1,-1,0)(92=-1,-1,-1,-1,0)(2006=-1,-1,-1,-1,0)(2007=-1,-1,-1,-1,0)(5012=-1,-1,-1,-1,0)(3005=-1,-1,-1,-1,0)(5015=-1,-1,-1,-1,0)(103=-1,-1,-1,-1,0)(102=-1,-1,-1,-1,0))
+  OPTKEY 0,(MON51)(-S1 -B28800 -O15)
+  OPTWA 0,1,(can_buffrx)
+  OPTWA 1,1,(address)
+  OPTWA 2,1,(dlc)
+  OPTWA 3,1,(led_pattern)
+  OPTWA 4,1,(can_data)
+  OPTWA 5,1,(tx_message)
+  OPTWA 6,1,(tx_data)
+  OPTMM 1,0,(buff_rx)
+  OPTBT 0,(Go to Main)(g 0x8100, main)
+  OPTBT 1,(Go)(g)
+  OPTSY 0,0,(*)
+  OPTDF 0x94
+  OPTLE <>
+  OPTLC <>
+EndOpt
+
+TARGOPT 2, (autonome)
+ CLK51=16000000
+  OPTTT 1,1,1,0
+  OPTHX 0,65535,0,0,0
+  OPTLX 120,65,8,<.\>
+  OPTLT 1,1,1,0,1,1,1,1,1,0,1
+  OPTXL 1,1,1,1,1,1,1,1,0
+  OPTFL 1,0,0
+  OPTBL 0,(Add on databooks)<DATASHTS\ADDBOOKS.PDF>
+  OPTBL 1,(Programmer's Guide & Instruction Set Manual)<DATASHTS\PHILIPS\UPROGGUI.PDF>
+  OPTDL (S8051.DLL)()(DP51.DLL)(-p592)(S8051.DLL)()(TP51.DLL)(-p592)
+  OPTDBG 48118,0,()()()()()()()()()() ()()()()
+  OPTKEY 0,(MON51)(-S1 -B28800 -O15)
+  OPTWA 0,1,(tab_rx)
+  OPTWA 1,1,(tab_canrx)
+  OPTWA 2,1,(timentprx)
+  OPTWA 3,1,(timentptx)
+  OPTMM 1,0,(x:0xfd00)
+  OPTBT 0,(Go to Main)(g 0x8100, main)
+  OPTBT 1,(Go)(g)
+  OPTSY 0,0,(*)
+  OPTDF 0x8094
+  OPTLE <>
+  OPTLC <>
+EndOpt
+

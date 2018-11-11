@@ -1,0 +1,10 @@
+"FonctionsBases2.obj",
+".\LIBTP2.OBJ",
+".\startupfyt.LIB" 
+TO "can_proj" 
+IXREF 
+RAMSIZE(256) 
+CODE( 0X8100-0XF0FF )
+XDATA( 0X1000-0X3FFF )
+PDATA( 1 )
+BIT( 0x20 )

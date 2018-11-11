@@ -1,0 +1,10 @@
+# depslib dependency file v1.0
+1541683195 source:c:\users\jsanch1\desktop\tp3\main.c
+	<stdio.h>
+	<stdlib.h>
+	<windows.h>
+	<time.h>
+	"Dask.h"
+
+1473750912 c:\users\jsanch1\desktop\tp3\dask.h
+

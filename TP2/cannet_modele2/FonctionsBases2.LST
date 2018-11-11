@@ -1,0 +1,1321 @@
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 1   
+
+
+C51 COMPILER V6.14, COMPILATION OF MODULE FONCTIONSBASES2
+OBJECT MODULE PLACED IN .\FonctionsBases2.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE .\FonctionsBases2.c OPTIMIZE(9,SPEED) BROWSE INTVECTOR(0X8100) DEBUG OBJECT
+                    -EXTEND CODE SYMBOLS
+
+stmt level    source
+
+   1          /*----------------------------------------------------------------------*/
+   2          /*                                                                      */
+   3          /*      Source file:            code1.C                                 */
+   4          /*      Package:                basic                                   */
+   5          /*      Software version:       1.0                                     */
+   6          /*      Date:                   18/01/2017                               */
+   7          /*      Authors:                A. Elouardi	*/
+   8          /*		      based on	Jens-Ulf Pehrs                          		*/
+   9          /*            Philips Semiconductors RHW-PCALH/AI			    		*/
+  10          /*                                                                      */
+  11          /*                                                                      */
+  12          /************************************************************************/
+  13          
+  14          /************************************************************************/
+  15          /*      INCLUDES      D E F I N I T I O N S                             */
+  16          /************************************************************************/
+  17          #include <reg592.h>
+  18          #include <stdio.h>
+  19          #include <intrins.h>
+  20          #include "candefs.h"
+  21          #include "FonctionsBases2.h"
+  22          #include "libtp2.h"
+  23          
+  24          
+  25          
+  26          
+  27          /************************************************************************/
+  28          /************************************************************************/
+  29          /*							FONCTIONS									*/
+  30          /************************************************************************/
+  31          /************************************************************************/
+  32          
+  33          /************************************************************************/
+  34          /*......................................................................*/
+  35          /*		Fonctions pour la configuration et l'initialisation de CAN		*/
+  36          /*......................................................................*/
+  37          /************************************************************************/
+  38          
+  39          /************************************************************************/
+  40          /*      procedure:      can_config                                      */
+  41          /*      input:          ---                                             */
+  42          /*      output:         ---                                             */
+  43          /*      calls:          ---                                             */
+  44          /************************************************************************/
+  45          
+  46          //La reference de tension n'est pas active ... à voir !
+  47          unsigned char    can_config ()
+  48          {   unsigned char retour=0;
+  49   1          EA = FALSE;
+  50   1          can_com=0;
+  51   1          do    {
+  52   2              CANADR = CONTROL;
+  53   2              CANDAT = RESET_REQUEST;
+  54   2          }   while  ( !(CANDAT & RESET_REQUEST) );
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 2   
+
+  55   1          CANADR = AUTO_ACC_CODE;
+  56   1          CANDAT = ACCEPT_CODE;
+  57   1          CANDAT = ACCEPT_MASK;
+  58   1          CANDAT = BUS_TIM_0;
+  59   1          CANDAT = BUS_TIM_1;
+  60   1          CANDAT = OUT_CONTROL;
+  61   1          CANCON = DIFFERENTIAL;
+  62   1          do    {
+  63   2              CANADR = CONTROL;
+  64   2              CANDAT = 0;
+  65   2          }   while  ( CANDAT & RESET_REQUEST );
+  66   1          CANDAT = CAN_INT_ENABLE;
+  67   1      
+  68   1          if  ( CAN_ERROR_STAT )    
+  69   1      	        retour=1; //printf("erreur_stat\n");
+  70   1          PS1 = TRUE;
+  71   1          ES1 = TRUE;
+  72   1          EA  = TRUE;
+  73   1      	return retour;
+  74   1      }
+  75          
+  76          /************************************************************************/
+  77          /*      procedure:      can_contr_init                                  */
+  78          /*      input:          ---                                             */
+  79          /*      output:         ---                                             */
+  80          /*      calls:          led_init, can_config, slio_init                 */
+  81          /************************************************************************/
+  82          
+  83          void can_contr_init()
+  84          {
+  85   1          can_config ();
+  86   1      }
+  87          
+  88          
+  89          /************************************************************************/
+  90          /*      procedure:      CANInitialisation                               */
+  91          /*      input:          ---                                             */
+  92          /*      output:         ---                                             */
+  93          /*      calls:          can_contr_init					                */
+  94          /************************************************************************/
+  95           
+  96          void CANInitialisation()
+  97          {
+  98   1      	can_contr_init();
+  99   1          can_init_request=FALSE;
+ 100   1      	int_save = CANCON;
+ 101   1      	can_tx_ready=1;
+ 102   1      }
+ 103          
+ 104          
+ 105          
+ 106          
+ 107          
+ 108          /************************************************************************/
+ 109          /*......................................................................*/
+ 110          /*			Fonction en cas de problème sur le CAN						*/
+ 111          /*......................................................................*/
+ 112          /************************************************************************/
+ 113          
+ 114          
+ 115          
+ 116          /************************************************************************/
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 3   
+
+ 117          /*      procedure:      can_int_error                                   */
+ 118          /*      input:          ---                                             */
+ 119          /*      output:         ---                                             */
+ 120          /*      calls:          ---                                             */
+ 121          /*----------------------------------------------------------------------*/
+ 122          /*      running on interrupt level, called from "can_int ()"            */
+ 123          /************************************************************************/
+ 124          
+ 125          void    can_int_error ()
+ 126          {
+ 127   1          if  ( CAN_ERROR_STAT )  {
+ 128   2              can_event       = TRUE;
+ 129   2              if  ( CAN_BUS_STATUS )
+ 130   2                  can_system_error = TRUE;
+ 131   2          }
+ 132   1          else  {
+ 133   2              can_event   = FALSE;
+ 134   2          }
+ 135   1      }
+ 136          
+ 137          /************************************************************************/
+ 138          /*......................................................................*/
+ 139          /*			Fonctions pour la réception de messages sur le CAN			*/
+ 140          /*......................................................................*/
+ 141          /************************************************************************/
+ 142          
+ 143          /************************************************************************/
+ 144          /*      procedure:      can_buf_full                                    */
+ 145          /*      input:          ---                                             */
+ 146          /*      output:         ---                                             */
+ 147          /*      calls:          ---                                             */
+ 148          /*----------------------------------------------------------------------*/
+ 149          /*      running on interrupt level, called from "can_int ()"            */
+ 150          /*----------------------------------------------------------------------*/
+ 151          /*                                                                      */
+ 152          /*                                                                      */
+ 153          /************************************************************************/
+ 154          
+ 155          void    can_buf_full ()
+ 156          {
+ 157   1          
+ 158   1      //    CANSTA = (char *)tab_rx;
+ 159   1          CANSTA = (unsigned char)(can_buffrx);
+ 160   1      	CANADR = DMA_EN|AUTO_RX_BUFFER;
+ 161   1      	_nop_();
+ 162   1      	_nop_();
+ 163   1      	_nop_();
+ 164   1      	_nop_();
+ 165   1      	_nop_();
+ 166   1          if  ( overrun_int )
+ 167   1              CANCON = RELEASE_RX_BUF | OVERRUN_CLEAR;
+ 168   1          else
+ 169   1              CANCON = RELEASE_RX_BUF;
+ 170   1      
+ 171   1      	can_event   = TRUE;
+ 172   1          can_rx_ready =TRUE;
+ 173   1      }
+ 174          
+ 175          /************************************************************************/
+ 176          /*......................................................................*/
+ 177          /*			Fonctions pour l'émission de messages sur le CAN			*/
+ 178          /*......................................................................*/
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 4   
+
+ 179          /************************************************************************/
+ 180          
+ 181          /************************************************************************/
+ 182          /*      procedure:      send_message                                    */
+ 183          /*      input:          data_table         				*/
+ 184          /*      output:         ---                                             */
+ 185          /*      calls:                                                          */
+ 186          /************************************************************************/
+ 187          
+ 188          unsigned char send_message ( unsigned char *tabtx ){
+ 189   1      
+ 190   1        int_save    = CANCON;
+ 191   1        if  ( CAN_TX_BUFFER )   {
+ 192   2          CANSTA = (char)tabtx;
+ 193   2          CANADR = DMA_EN|AUTO_TX_BUFFER;
+ 194   2      	_nop_();
+ 195   2      	_nop_();
+ 196   2      	_nop_();
+ 197   2      	_nop_();
+ 198   2      	_nop_();
+ 199   2          can_event = TRUE;
+ 200   2          can_tx_ready = FALSE;
+ 201   2          can_tx_sending = TRUE; 
+ 202   2          CANCON = TRANSMIT_REQUEST|DIFFERENTIAL;        		/* start CAN transmit to SLIO */
+ 203   2      	return 1;
+ 204   2        }
+ 205   1        else   {                                    			/* error exit, if transmit    */
+ 206   2      
+ 207   2        //ATTENTION ne pas faire ca car cela risque de planter
+ 208   2        // il faut rien faire dans ce cas et prévenir qu'il n'y  pas 
+ 209   2        //d'émission...... et emettre à nouveau apres.
+ 210   2          CANCON           = TRANSMIT_ABORT|DIFFERENTIAL;     /*    not possible            */
+ 211   2          can_system_error = TRUE;
+ 212   2          can_init_request = TRUE;
+ 213   2          can_partner      = FALSE;
+ 214   2          can_tx_ready=can_tx_sending=FALSE;
+ 215   2      	return 0;
+ 216   2          };
+ 217   1      }
+ 218          
+ 219          /************************************************************************/
+ 220          /*      procedure:      can_tx_complete                                 */
+ 221          /*      input:          ---                                             */
+ 222          /*      output:         ---                                             */
+ 223          /*      calls:          ---                                             */
+ 224          /*----------------------------------------------------------------------*/
+ 225          /*      running on interrupt level, called from "can_int ()"            */
+ 226          /************************************************************************/
+ 227          
+ 228          void    can_tx_complete ()
+ 229          {
+ 230   1          can_event = TRUE;
+ 231   1      	can_tx_ready = TRUE;
+ 232   1      }
+ 233          
+ 234          
+ 235          /************************************************************************/
+ 236          /*......................................................................*/
+ 237          /*			Fonction gérant les interruptions sur le CAN				*/
+ 238          /*......................................................................*/
+ 239          /************************************************************************/
+ 240          /*      procedure:      can_int                                         */
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 5   
+
+ 241          /*      input:          ---                                             */
+ 242          /*      output:         ---                                             */
+ 243          /*      calls:          ---                                             */
+ 244          /*----------------------------------------------------------------------*/
+ 245          /*      running on interrupt level, called from "can_int ()"            */
+ 246          /************************************************************************/
+ 247          
+ 248          void    can_int (void)  interrupt 5
+ 249          {
+ 250   1          int_save = CANCON;
+ 251   1       
+ 252   1          if  ( error_int ){			// due à une erreur
+ 253   2      		can_int_error ();
+ 254   2      	}
+ 255   1          if  ( receive_int )    							// due à la réception d'un message
+ 256   1      	{
+ 257   2      		// on stocke la valeur du tps lors de la réception du message NON
+ 258   2      		    CANSTA = (unsigned char)(can_buffrx);
+ 259   2      			CANADR = DMA_EN|AUTO_RX_BUFFER;
+ 260   2      			_nop_();
+ 261   2      			_nop_();
+ 262   2      			_nop_();
+ 263   2      			_nop_();
+ 264   2          		if  ( overrun_int )
+ 265   2              		CANCON = RELEASE_RX_BUF | OVERRUN_CLEAR;
+ 266   2          		else
+ 267   2              		CANCON = RELEASE_RX_BUF;
+ 268   2      			can_event   = TRUE;
+ 269   2          		can_rx_ready =TRUE;
+ 270   2      
+ 271   2      	}
+ 272   1          if  ( transmit_int && CAN_TX_COMPLETE ){// due à une transm- correcte et buffer d'emission vide
+ 273   2        		can_tx_complete ();
+ 274   2      	}
+ 275   1      }
+ 276          
+ 277          
+ 278          /************************************************************************/
+ 279          /*      procedure:      timer setup and ISR                             */
+ 280          /*      input:          ---                                             */
+ 281          /*      output:         ---                                             */
+ 282          /*      calls:          ---                                             */
+ 283          /************************************************************************/
+ 284          
+ 285          int tempo_counter = 0;     // counter for soft delay
+ 286          int FLAG_tempo = 0;        // flag to signal pattern change
+ 287          
+ 288          /**
+ 289           * \fn void init_timer0()
+ 290           * \brief Function to setup Timer 0
+ 291           */
+ 292          void init_timer0() {
+ 293   1      	TMOD = TMOD|2; // mode 2 timer 0
+ 294   1      	TL0  = 0; // init TL0
+ 295   1      	TH0  = 0; // tampon pour 192 us
+ 296   1      	ET0  = 1; // validation de l'interrupt timer 0
+ 297   1      	EA   = 1; // autorisation globale des interupts
+ 298   1      	TR0  = 1; // start timer 0
+ 299   1      }
+ 300          
+ 301          /**
+ 302           * \fn void init_timer0()
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 6   
+
+ 303           * \brief ISR of Timer 0
+ 304           */
+ 305          void timer0() interrupt 1 {
+ 306   1      	// Counting 250 ms with the timer
+ 307   1      	tempo_counter++;
+ 308   1      	if (tempo_counter >=4166) {
+ 309   2      		tempo_counter = 0;
+ 310   2      		FLAG_tempo = 1;
+ 311   2      	}
+ 312   1      }
+ 313          
+ 314          /************************************************************************/
+ 315          /*      procedure:      main                                            */
+ 316          /*      input:          ---                                             */
+ 317          /*      output:         ---                                             */
+ 318          /*      calls:          CANInitialisation, LireBufferReception          */
+ 319          /*                      CANEmissionMessage, CANREceptionMessage         */
+ 320          /************************************************************************/
+ 321          
+ 322          unsigned int can_id = 0x490;
+ 323          
+ 324          unsigned int countx;
+ 325          unsigned short address;
+ 326          unsigned char dlc;
+ 327          unsigned int counter;
+ 328          unsigned char can_data[8];
+ 329          unsigned int led_pattern;
+ 330          xdata unsigned int LED _at_ 0xFD00;   // access to hardware
+ 331          unsigned char tx_data[] = {'C','E','S','T',' ','D','U','R',' ','C','H','O','I','S','I','R',' ','U','N',' '
+             -,'M','E','S','S','A','G','E'};
+ 332          unsigned char tx_message[10];
+ 333          
+ 334          unsigned int char_counter;
+ 335          unsigned int frame_data_length;
+ 336          unsigned int sub_can_id;
+ 337          
+ 338          
+ 339          void send_data() {
+ 340   1      	FLAG_tempo = 0;
+ 341   1      	
+ 342   1      	frame_data_length = 0;
+ 343   1      	for (char_counter=0; char_counter < sizeof(tx_data); char_counter++) {
+ 344   2      		tx_message[2 + char_counter%8] = tx_data[char_counter];
+ 345   2      		frame_data_length++;
+ 346   2      		
+ 347   2      		
+ 348   2      		if ((char_counter+1)%8 == 0 || char_counter == sizeof(tx_data)-1) {
+ 349   3      			sub_can_id  = can_id + char_counter/8;
+ 350   3      			tx_message[0] = can_id >> 3;
+ 351   3      			tx_message[1] = (can_id & 0x07) << 5;
+ 352   3      			tx_message[1] |= (char_counter/8) << 5;
+ 353   3      			tx_message[1] |= frame_data_length;
+ 354   3      			send_message(tx_message);
+ 355   3      			frame_data_length = 0;
+ 356   3      			// printf("Frame sent\n");
+ 357   3      		}
+ 358   2      	} 
+ 359   1      }
+ 360          
+ 361          
+ 362          /***************************   MAIN      *********************************/
+ 363          void    main()
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 7   
+
+ 364          {
+ 365   1      	//Initialisation du CAN
+ 366   1          CANInitialisation();
+ 367   1      	init_timer0();
+ 368   1      	printf("initialisation du systeme\n");
+ 369   1      
+ 370   1      	while(1)
+ 371   1      	{   
+ 372   2      		/**** erreur donc demande d'initialisation *****/    
+ 373   2      		if  ( can_system_error ){
+ 374   3       			printf("CAN ERREUR\n");
+ 375   3      			can_init_request = TRUE;
+ 376   3      		}
+ 377   2      		/**** besoin d'une initialisation *****/
+ 378   2      		if  ( can_init_request ){
+ 379   3       			printf("initialisation CAN\n");
+ 380   3      		    CANInitialisation();
+ 381   3      			can_init_request=FALSE;
+ 382   3          	}
+ 383   2      
+ 384   2      		if ( can_rx_ready )
+ 385   2      		{ 
+ 386   3      		  // read address
+ 387   3      		  address = (((int)can_buffrx[0]) << 3) + ((can_buffrx[1] & 0xE0) >> 5);
+ 388   3      
+ 389   3      		  if (address != 0x0370) {
+ 390   4      		  	if (address == 0x0310) {
+ 391   5      			  printf("\n");
+ 392   5      			}
+ 393   4      
+ 394   4      			// read dlc
+ 395   4      			dlc = (can_buffrx[1] & 0xF);
+ 396   4      	
+ 397   4      			for (counter=0; counter<dlc; counter++) {
+ 398   5      			  can_data[counter] = can_buffrx[2+counter];
+ 399   5      			}
+ 400   4      	
+ 401   4      			for (counter=dlc; counter<8; counter++) {
+ 402   5      			  can_data[counter] = 0;
+ 403   5      			}
+ 404   4      
+ 405   4      			led_pattern = ((unsigned int)can_data[0] << 8) + (unsigned int)can_data[1];
+ 406   4      		    LED = led_pattern;
+ 407   4      	
+ 408   4      			can_rx_ready=0;
+ 409   4      			countx=countx+1;
+ 410   4      			// printf("address: 0x%X    dlc: 0x%X   led: 0x%X  data: ", address, (unsigned int)dlc, led_pattern);
+ 411   4      			  
+ 412   4      			for (counter=0; counter<dlc; counter++) {
+ 413   5      			  // printf("%02X ", (unsigned int)can_data[counter]);
+ 414   5      			  printf("%c", can_data[counter]);
+ 415   5      			}
+ 416   4      	
+ 417   4      	  	    printf(" ");
+ 418   4      		  }
+ 419   3      
+ 420   3      		}
+ 421   2      		
+ 422   2      		if(can_tx_ready && FLAG_tempo){
+ 423   3      			send_data();  	   		        
+ 424   3      		}
+ 425   2      	 }
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 8   
+
+ 426   1      }
+ 427          
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 9   
+
+ASSEMBLY LISTING OF GENERATED OBJECT CODE
+
+
+             ; FUNCTION can_config (BEGIN)
+                                           ; SOURCE LINE # 47
+                                           ; SOURCE LINE # 48
+;---- Variable 'retour' assigned to Register 'R7' ----
+0000 E4                CLR     A
+0001 FF                MOV     R7,A
+                                           ; SOURCE LINE # 49
+0002 C2AF              CLR     EA
+                                           ; SOURCE LINE # 50
+0004 F500        R     MOV     can_com,A
+0006         ?C0003:
+                                           ; SOURCE LINE # 51
+                                           ; SOURCE LINE # 52
+0006 E4                CLR     A
+0007 F5DB              MOV     CANADR,A
+                                           ; SOURCE LINE # 53
+0009 75DA01            MOV     CANDAT,#01H
+                                           ; SOURCE LINE # 54
+000C E5DA              MOV     A,CANDAT
+000E 30E0F5            JNB     ACC.0,?C0003
+                                           ; SOURCE LINE # 55
+0011 75DB24            MOV     CANADR,#024H
+                                           ; SOURCE LINE # 56
+0014 75DA60            MOV     CANDAT,#060H
+                                           ; SOURCE LINE # 57
+0017 75DA0E            MOV     CANDAT,#0EH
+                                           ; SOURCE LINE # 58
+001A E4                CLR     A
+001B F5DA              MOV     CANDAT,A
+                                           ; SOURCE LINE # 59
+001D 75DA14            MOV     CANDAT,#014H
+                                           ; SOURCE LINE # 60
+0020 75DAFA            MOV     CANDAT,#0FAH
+                                           ; SOURCE LINE # 61
+0023 75D9C0            MOV     CANCON,#0C0H
+0026         ?C0006:
+                                           ; SOURCE LINE # 62
+                                           ; SOURCE LINE # 63
+0026 E4                CLR     A
+0027 F5DB              MOV     CANADR,A
+                                           ; SOURCE LINE # 64
+0029 F5DA              MOV     CANDAT,A
+                                           ; SOURCE LINE # 65
+002B E5DA              MOV     A,CANDAT
+002D 20E0F6            JB      ACC.0,?C0006
+                                           ; SOURCE LINE # 66
+0030 75DA1E            MOV     CANDAT,#01EH
+                                           ; SOURCE LINE # 68
+0033 30DE02            JNB     CAN_ERROR_STAT,?C0007
+                                           ; SOURCE LINE # 69
+0036 7F01              MOV     R7,#01H
+0038         ?C0007:
+                                           ; SOURCE LINE # 70
+0038 D2BD              SETB    PS1
+                                           ; SOURCE LINE # 71
+003A D2AD              SETB    ES1
+                                           ; SOURCE LINE # 72
+003C D2AF              SETB    EA
+                                           ; SOURCE LINE # 73
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 10  
+
+                                           ; SOURCE LINE # 74
+003E         ?C0008:
+003E 22                RET     
+             ; FUNCTION can_config (END)
+
+             ; FUNCTION can_contr_init (BEGIN)
+                                           ; SOURCE LINE # 83
+                                           ; SOURCE LINE # 84
+                                           ; SOURCE LINE # 85
+0000 020000      R     LJMP    can_config
+             ; FUNCTION can_contr_init (END)
+
+             ; FUNCTION CANInitialisation (BEGIN)
+                                           ; SOURCE LINE # 96
+                                           ; SOURCE LINE # 97
+                                           ; SOURCE LINE # 98
+0000 120000      R     LCALL   can_contr_init
+                                           ; SOURCE LINE # 99
+0003 C200        R     CLR     can_init_request
+                                           ; SOURCE LINE # 100
+0005 85D900      R     MOV     int_save,CANCON
+                                           ; SOURCE LINE # 101
+0008 D200        R     SETB    can_tx_ready
+                                           ; SOURCE LINE # 102
+000A 22                RET     
+             ; FUNCTION CANInitialisation (END)
+
+             ; FUNCTION can_int_error (BEGIN)
+                                           ; SOURCE LINE # 125
+                                           ; SOURCE LINE # 126
+                                           ; SOURCE LINE # 127
+0000 30DE08            JNB     CAN_ERROR_STAT,?C0011
+                                           ; SOURCE LINE # 128
+0003 D200        R     SETB    can_event
+                                           ; SOURCE LINE # 129
+0005 30DF05            JNB     CAN_BUS_STATUS,?C0014
+                                           ; SOURCE LINE # 130
+0008 D200        R     SETB    can_system_error
+                                           ; SOURCE LINE # 131
+000A 22                RET     
+000B         ?C0011:
+                                           ; SOURCE LINE # 132
+                                           ; SOURCE LINE # 133
+000B C200        R     CLR     can_event
+                                           ; SOURCE LINE # 134
+                                           ; SOURCE LINE # 135
+000D         ?C0014:
+000D 22                RET     
+             ; FUNCTION can_int_error (END)
+
+             ; FUNCTION can_buf_full (BEGIN)
+                                           ; SOURCE LINE # 155
+                                           ; SOURCE LINE # 156
+                                           ; SOURCE LINE # 159
+0000 75D800      R     MOV     CANSTA,#LOW can_buffrx
+                                           ; SOURCE LINE # 160
+0003 75DBB4            MOV     CANADR,#0B4H
+                                           ; SOURCE LINE # 161
+0006 00                NOP     
+                                           ; SOURCE LINE # 162
+0007 00                NOP     
+                                           ; SOURCE LINE # 163
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 11  
+
+0008 00                NOP     
+                                           ; SOURCE LINE # 164
+0009 00                NOP     
+                                           ; SOURCE LINE # 165
+000A 00                NOP     
+                                           ; SOURCE LINE # 166
+000B 300005      R     JNB     overrun_int,?C0015
+                                           ; SOURCE LINE # 167
+000E 75D90C            MOV     CANCON,#0CH
+0011 8003              SJMP    ?C0016
+0013         ?C0015:
+                                           ; SOURCE LINE # 169
+0013 75D904            MOV     CANCON,#04H
+0016         ?C0016:
+                                           ; SOURCE LINE # 171
+0016 D200        R     SETB    can_event
+                                           ; SOURCE LINE # 172
+0018 D200        R     SETB    can_rx_ready
+                                           ; SOURCE LINE # 173
+001A 22                RET     
+             ; FUNCTION can_buf_full (END)
+
+             ; FUNCTION _send_message (BEGIN)
+                                           ; SOURCE LINE # 188
+;---- Variable 'tabtx' assigned to Register 'R1/R2/R3' ----
+                                           ; SOURCE LINE # 190
+0000 85D900      R     MOV     int_save,CANCON
+                                           ; SOURCE LINE # 191
+0003 30DA18            JNB     CAN_TX_BUFFER,?C0018
+                                           ; SOURCE LINE # 192
+0006 AF01              MOV     R7,AR1
+0008 8FD8              MOV     CANSTA,R7
+                                           ; SOURCE LINE # 193
+000A 75DBAA            MOV     CANADR,#0AAH
+                                           ; SOURCE LINE # 194
+000D 00                NOP     
+                                           ; SOURCE LINE # 195
+000E 00                NOP     
+                                           ; SOURCE LINE # 196
+000F 00                NOP     
+                                           ; SOURCE LINE # 197
+0010 00                NOP     
+                                           ; SOURCE LINE # 198
+0011 00                NOP     
+                                           ; SOURCE LINE # 199
+0012 D200        R     SETB    can_event
+                                           ; SOURCE LINE # 200
+0014 C200        R     CLR     can_tx_ready
+                                           ; SOURCE LINE # 201
+0016 D200        R     SETB    can_tx_sending
+                                           ; SOURCE LINE # 202
+0018 75D9C1            MOV     CANCON,#0C1H
+                                           ; SOURCE LINE # 203
+001B 7F01              MOV     R7,#01H
+001D 22                RET     
+                                           ; SOURCE LINE # 204
+001E         ?C0018:
+                                           ; SOURCE LINE # 205
+                                           ; SOURCE LINE # 210
+001E 75D9C2            MOV     CANCON,#0C2H
+                                           ; SOURCE LINE # 211
+0021 D200        R     SETB    can_system_error
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 12  
+
+                                           ; SOURCE LINE # 212
+0023 D200        R     SETB    can_init_request
+                                           ; SOURCE LINE # 213
+0025 C200        R     CLR     can_partner
+                                           ; SOURCE LINE # 214
+0027 C200        R     CLR     can_tx_sending
+0029 C200        R     CLR     can_tx_ready
+                                           ; SOURCE LINE # 215
+002B 7F00              MOV     R7,#00H
+                                           ; SOURCE LINE # 216
+                                           ; SOURCE LINE # 217
+002D         ?C0019:
+002D 22                RET     
+             ; FUNCTION _send_message (END)
+
+             ; FUNCTION can_tx_complete (BEGIN)
+                                           ; SOURCE LINE # 228
+                                           ; SOURCE LINE # 229
+                                           ; SOURCE LINE # 230
+0000 D200        R     SETB    can_event
+                                           ; SOURCE LINE # 231
+0002 D200        R     SETB    can_tx_ready
+                                           ; SOURCE LINE # 232
+0004 22                RET     
+             ; FUNCTION can_tx_complete (END)
+
+             ; FUNCTION can_int (BEGIN)
+                                           ; SOURCE LINE # 248
+                                           ; SOURCE LINE # 250
+0000 85D900      R     MOV     int_save,CANCON
+                                           ; SOURCE LINE # 252
+0003 300003      R     JNB     error_int,?C0022
+                                           ; SOURCE LINE # 253
+0006 120000      R     LCALL   can_int_error
+                                           ; SOURCE LINE # 254
+0009         ?C0022:
+                                           ; SOURCE LINE # 255
+0009 300019      R     JNB     receive_int,?C0023
+                                           ; SOURCE LINE # 256
+                                           ; SOURCE LINE # 258
+000C 75D800      R     MOV     CANSTA,#LOW can_buffrx
+                                           ; SOURCE LINE # 259
+000F 75DBB4            MOV     CANADR,#0B4H
+                                           ; SOURCE LINE # 260
+0012 00                NOP     
+                                           ; SOURCE LINE # 261
+0013 00                NOP     
+                                           ; SOURCE LINE # 262
+0014 00                NOP     
+                                           ; SOURCE LINE # 263
+0015 00                NOP     
+                                           ; SOURCE LINE # 264
+0016 300005      R     JNB     overrun_int,?C0024
+                                           ; SOURCE LINE # 265
+0019 75D90C            MOV     CANCON,#0CH
+001C 8003              SJMP    ?C0025
+001E         ?C0024:
+                                           ; SOURCE LINE # 267
+001E 75D904            MOV     CANCON,#04H
+0021         ?C0025:
+                                           ; SOURCE LINE # 268
+0021 D200        R     SETB    can_event
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 13  
+
+                                           ; SOURCE LINE # 269
+0023 D200        R     SETB    can_rx_ready
+                                           ; SOURCE LINE # 271
+0025         ?C0023:
+                                           ; SOURCE LINE # 272
+0025 300006      R     JNB     transmit_int,?C0027
+0028 30DB03            JNB     CAN_TX_COMPLETE,?C0027
+                                           ; SOURCE LINE # 273
+002B 120000      R     LCALL   can_tx_complete
+                                           ; SOURCE LINE # 274
+                                           ; SOURCE LINE # 275
+002E         ?C0027:
+002E 32                RETI    
+             ; FUNCTION can_int (END)
+
+             ; FUNCTION init_timer0 (BEGIN)
+                                           ; SOURCE LINE # 292
+                                           ; SOURCE LINE # 293
+0000 438902            ORL     TMOD,#02H
+                                           ; SOURCE LINE # 294
+0003 E4                CLR     A
+0004 F58A              MOV     TL0,A
+                                           ; SOURCE LINE # 295
+0006 F58C              MOV     TH0,A
+                                           ; SOURCE LINE # 296
+0008 D2A9              SETB    ET0
+                                           ; SOURCE LINE # 297
+000A D2AF              SETB    EA
+                                           ; SOURCE LINE # 298
+000C D28C              SETB    TR0
+                                           ; SOURCE LINE # 299
+000E 22                RET     
+             ; FUNCTION init_timer0 (END)
+
+             ; FUNCTION timer0 (BEGIN)
+0000 C0E0              PUSH    ACC
+0002 C0D0              PUSH    PSW
+                                           ; SOURCE LINE # 305
+                                           ; SOURCE LINE # 307
+0004 0500        R     INC     tempo_counter+01H
+0006 E500        R     MOV     A,tempo_counter+01H
+0008 7002              JNZ     ?C0055
+000A 0500        R     INC     tempo_counter
+000C         ?C0055:
+                                           ; SOURCE LINE # 308
+000C C3                CLR     C
+000D 9446              SUBB    A,#046H
+000F E500        R     MOV     A,tempo_counter
+0011 6480              XRL     A,#080H
+0013 9490              SUBB    A,#090H
+0015 400C              JC      ?C0030
+                                           ; SOURCE LINE # 309
+0017 750000      R     MOV     tempo_counter,#00H
+001A 750000      R     MOV     tempo_counter+01H,#00H
+                                           ; SOURCE LINE # 310
+001D 750000      R     MOV     FLAG_tempo,#00H
+0020 750001      R     MOV     FLAG_tempo+01H,#01H
+                                           ; SOURCE LINE # 311
+                                           ; SOURCE LINE # 312
+0023         ?C0030:
+0023 D0D0              POP     PSW
+0025 D0E0              POP     ACC
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 14  
+
+0027 32                RETI    
+             ; FUNCTION timer0 (END)
+
+             ; FUNCTION send_data (BEGIN)
+                                           ; SOURCE LINE # 339
+                                           ; SOURCE LINE # 340
+0000 E4                CLR     A
+0001 F500        R     MOV     FLAG_tempo,A
+0003 F500        R     MOV     FLAG_tempo+01H,A
+                                           ; SOURCE LINE # 342
+0005 F500        R     MOV     frame_data_length,A
+0007 F500        R     MOV     frame_data_length+01H,A
+                                           ; SOURCE LINE # 343
+0009 F500        R     MOV     char_counter,A
+000B F500        R     MOV     char_counter+01H,A
+000D         ?C0031:
+                                           ; SOURCE LINE # 344
+000D 7400        R     MOV     A,#LOW tx_data
+000F 2500        R     ADD     A,char_counter+01H
+0011 F8                MOV     R0,A
+0012 E6                MOV     A,@R0
+0013 FF                MOV     R7,A
+0014 E500        R     MOV     A,char_counter+01H
+0016 5407              ANL     A,#07H
+0018 2400        R     ADD     A,#LOW tx_message+02H
+001A F8                MOV     R0,A
+001B A607              MOV     @R0,AR7
+                                           ; SOURCE LINE # 345
+001D 0500        R     INC     frame_data_length+01H
+001F E500        R     MOV     A,frame_data_length+01H
+0021 7002              JNZ     ?C0056
+0023 0500        R     INC     frame_data_length
+0025         ?C0056:
+                                           ; SOURCE LINE # 348
+0025 E500        R     MOV     A,char_counter+01H
+0027 2401              ADD     A,#01H
+0029 FF                MOV     R7,A
+002A E4                CLR     A
+002B 3500        R     ADDC    A,char_counter
+002D EF                MOV     A,R7
+002E 5407              ANL     A,#07H
+0030 6008              JZ      ?C0035
+0032 E500        R     MOV     A,char_counter+01H
+0034 641A              XRL     A,#01AH
+0036 4500        R     ORL     A,char_counter
+0038 7059              JNZ     ?C0033
+003A         ?C0035:
+                                           ; SOURCE LINE # 349
+003A E500        R     MOV     A,char_counter+01H
+003C AE00        R     MOV     R6,char_counter
+003E 7803              MOV     R0,#03H
+0040         ?C0057:
+0040 CE                XCH     A,R6
+0041 C3                CLR     C
+0042 13                RRC     A
+0043 CE                XCH     A,R6
+0044 13                RRC     A
+0045 D8F9              DJNZ    R0,?C0057
+0047 FD                MOV     R5,A
+0048 AC06              MOV     R4,AR6
+004A 2500        R     ADD     A,can_id+01H
+004C F500        R     MOV     sub_can_id+01H,A
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 15  
+
+004E E500        R     MOV     A,can_id
+0050 3C                ADDC    A,R4
+0051 F500        R     MOV     sub_can_id,A
+                                           ; SOURCE LINE # 350
+0053 E500        R     MOV     A,can_id+01H
+0055 AE00        R     MOV     R6,can_id
+0057 7803              MOV     R0,#03H
+0059         ?C0058:
+0059 CE                XCH     A,R6
+005A C3                CLR     C
+005B 13                RRC     A
+005C CE                XCH     A,R6
+005D 13                RRC     A
+005E D8F9              DJNZ    R0,?C0058
+0060 F500        R     MOV     tx_message,A
+                                           ; SOURCE LINE # 351
+0062 7E00              MOV     R6,#00H
+0064 E500        R     MOV     A,can_id+01H
+0066 5407              ANL     A,#07H
+0068 7805              MOV     R0,#05H
+006A         ?C0059:
+006A C3                CLR     C
+006B 33                RLC     A
+006C CE                XCH     A,R6
+006D 33                RLC     A
+006E CE                XCH     A,R6
+006F D8F9              DJNZ    R0,?C0059
+0071 F500        R     MOV     tx_message+01H,A
+                                           ; SOURCE LINE # 352
+0073 ED                MOV     A,R5
+0074 AE04              MOV     R6,AR4
+0076 7805              MOV     R0,#05H
+0078         ?C0060:
+0078 C3                CLR     C
+0079 33                RLC     A
+007A CE                XCH     A,R6
+007B 33                RLC     A
+007C CE                XCH     A,R6
+007D D8F9              DJNZ    R0,?C0060
+007F 4200        R     ORL     tx_message+01H,A
+                                           ; SOURCE LINE # 353
+0081 E500        R     MOV     A,frame_data_length+01H
+0083 4200        R     ORL     tx_message+01H,A
+                                           ; SOURCE LINE # 354
+0085 7B00              MOV     R3,#00H
+0087 7A00        R     MOV     R2,#HIGH tx_message
+0089 7900        R     MOV     R1,#LOW tx_message
+008B 120000      R     LCALL   _send_message
+                                           ; SOURCE LINE # 355
+008E E4                CLR     A
+008F F500        R     MOV     frame_data_length,A
+0091 F500        R     MOV     frame_data_length+01H,A
+                                           ; SOURCE LINE # 357
+                                           ; SOURCE LINE # 358
+0093         ?C0033:
+0093 0500        R     INC     char_counter+01H
+0095 E500        R     MOV     A,char_counter+01H
+0097 7002              JNZ     ?C0061
+0099 0500        R     INC     char_counter
+009B         ?C0061:
+009B C3                CLR     C
+009C 941B              SUBB    A,#01BH
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 16  
+
+009E E500        R     MOV     A,char_counter
+00A0 9400              SUBB    A,#00H
+00A2 5003              JNC     $ + 5H
+00A4 020000      R     LJMP    ?C0031
+                                           ; SOURCE LINE # 359
+00A7         ?C0036:
+00A7 22                RET     
+             ; FUNCTION send_data (END)
+
+             ; FUNCTION main (BEGIN)
+                                           ; SOURCE LINE # 363
+                                           ; SOURCE LINE # 364
+                                           ; SOURCE LINE # 366
+0000 120000      R     LCALL   CANInitialisation
+                                           ; SOURCE LINE # 367
+0003 120000      R     LCALL   init_timer0
+                                           ; SOURCE LINE # 368
+0006 7BFF              MOV     R3,#0FFH
+0008 7A00        R     MOV     R2,#HIGH ?SC_0
+000A 7900        R     MOV     R1,#LOW ?SC_0
+000C 120000      E     LCALL   _printf
+000F         ?C0037:
+                                           ; SOURCE LINE # 370
+                                           ; SOURCE LINE # 371
+                                           ; SOURCE LINE # 373
+000F 30000B      R     JNB     can_system_error,?C0039
+                                           ; SOURCE LINE # 374
+0012 7BFF              MOV     R3,#0FFH
+0014 7A00        R     MOV     R2,#HIGH ?SC_27
+0016 7900        R     MOV     R1,#LOW ?SC_27
+0018 120000      E     LCALL   _printf
+                                           ; SOURCE LINE # 375
+001B D200        R     SETB    can_init_request
+                                           ; SOURCE LINE # 376
+001D         ?C0039:
+                                           ; SOURCE LINE # 378
+001D 30000E      R     JNB     can_init_request,?C0040
+                                           ; SOURCE LINE # 379
+0020 7BFF              MOV     R3,#0FFH
+0022 7A00        R     MOV     R2,#HIGH ?SC_39
+0024 7900        R     MOV     R1,#LOW ?SC_39
+0026 120000      E     LCALL   _printf
+                                           ; SOURCE LINE # 380
+0029 120000      R     LCALL   CANInitialisation
+                                           ; SOURCE LINE # 381
+002C C200        R     CLR     can_init_request
+                                           ; SOURCE LINE # 382
+002E         ?C0040:
+                                           ; SOURCE LINE # 384
+002E 200003      R     JB      can_rx_ready,$ + 6H
+0031 020000      R     LJMP    ?C0041
+                                           ; SOURCE LINE # 385
+                                           ; SOURCE LINE # 387
+0034 E500        R     MOV     A,can_buffrx
+0036 75F008            MOV     B,#08H
+0039 A4                MUL     AB
+003A FF                MOV     R7,A
+003B AEF0              MOV     R6,B
+003D E500        R     MOV     A,can_buffrx+01H
+003F 54E0              ANL     A,#0E0H
+0041 FD                MOV     R5,A
+0042 C4                SWAP    A
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 17  
+
+0043 13                RRC     A
+0044 5407              ANL     A,#07H
+0046 7C00              MOV     R4,#00H
+0048 2F                ADD     A,R7
+0049 F500        R     MOV     address+01H,A
+004B EC                MOV     A,R4
+004C 3E                ADDC    A,R6
+004D F500        R     MOV     address,A
+                                           ; SOURCE LINE # 389
+004F E500        R     MOV     A,address+01H
+0051 6470              XRL     A,#070H
+0053 7004              JNZ     ?C0062
+0055 E500        R     MOV     A,address
+0057 6403              XRL     A,#03H
+0059         ?C0062:
+0059 7003              JNZ     $ + 5H
+005B 020000      R     LJMP    ?C0041
+                                           ; SOURCE LINE # 390
+005E E500        R     MOV     A,address+01H
+0060 B4100E            CJNE    A,#010H,?C0043
+0063 E500        R     MOV     A,address
+0065 B40309            CJNE    A,#03H,?C0043
+                                           ; SOURCE LINE # 391
+0068 7BFF              MOV     R3,#0FFH
+006A 7A00        R     MOV     R2,#HIGH ?SC_59
+006C 7900        R     MOV     R1,#LOW ?SC_59
+006E 120000      E     LCALL   _printf
+                                           ; SOURCE LINE # 392
+0071         ?C0043:
+                                           ; SOURCE LINE # 395
+0071 E500        R     MOV     A,can_buffrx+01H
+0073 540F              ANL     A,#0FH
+0075 F500        R     MOV     dlc,A
+                                           ; SOURCE LINE # 397
+0077 E4                CLR     A
+0078 F500        R     MOV     counter,A
+007A F500        R     MOV     counter+01H,A
+007C         ?C0044:
+007C AF00        R     MOV     R7,dlc
+007E 7E00              MOV     R6,#00H
+0080 C3                CLR     C
+0081 E500        R     MOV     A,counter+01H
+0083 9F                SUBB    A,R7
+0084 E500        R     MOV     A,counter
+0086 9E                SUBB    A,R6
+0087 5018              JNC     ?C0045
+                                           ; SOURCE LINE # 398
+0089 AD00        R     MOV     R5,counter+01H
+008B 7400        R     MOV     A,#LOW can_buffrx+02H
+008D 2D                ADD     A,R5
+008E F8                MOV     R0,A
+008F E6                MOV     A,@R0
+0090 FC                MOV     R4,A
+0091 7400        R     MOV     A,#LOW can_data
+0093 2D                ADD     A,R5
+0094 F8                MOV     R0,A
+0095 A604              MOV     @R0,AR4
+                                           ; SOURCE LINE # 399
+0097 0500        R     INC     counter+01H
+0099 E500        R     MOV     A,counter+01H
+009B 70DF              JNZ     ?C0044
+009D 0500        R     INC     counter
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 18  
+
+009F         ?C0064:
+009F 80DB              SJMP    ?C0044
+00A1         ?C0045:
+                                           ; SOURCE LINE # 401
+00A1 8E00        R     MOV     counter,R6
+00A3 8F00        R     MOV     counter+01H,R7
+00A5         ?C0047:
+00A5 C3                CLR     C
+00A6 E500        R     MOV     A,counter+01H
+00A8 9408              SUBB    A,#08H
+00AA E500        R     MOV     A,counter
+00AC 9400              SUBB    A,#00H
+00AE 5011              JNC     ?C0048
+                                           ; SOURCE LINE # 402
+00B0 7400        R     MOV     A,#LOW can_data
+00B2 2500        R     ADD     A,counter+01H
+00B4 F8                MOV     R0,A
+00B5 E4                CLR     A
+00B6 F6                MOV     @R0,A
+                                           ; SOURCE LINE # 403
+00B7 0500        R     INC     counter+01H
+00B9 E500        R     MOV     A,counter+01H
+00BB 70E8              JNZ     ?C0047
+00BD 0500        R     INC     counter
+00BF         ?C0065:
+00BF 80E4              SJMP    ?C0047
+00C1         ?C0048:
+                                           ; SOURCE LINE # 405
+00C1 E500        R     MOV     A,can_data
+00C3 FE                MOV     R6,A
+00C4 7C00              MOV     R4,#00H
+00C6 E4                CLR     A
+00C7 2500        R     ADD     A,can_data+01H
+00C9 F500        R     MOV     led_pattern+01H,A
+00CB EC                MOV     A,R4
+00CC 3E                ADDC    A,R6
+00CD F500        R     MOV     led_pattern,A
+                                           ; SOURCE LINE # 406
+00CF 90FD00            MOV     DPTR,#LED
+00D2 F0                MOVX    @DPTR,A
+00D3 A3                INC     DPTR
+00D4 E500        R     MOV     A,led_pattern+01H
+00D6 F0                MOVX    @DPTR,A
+                                           ; SOURCE LINE # 408
+00D7 C200        R     CLR     can_rx_ready
+                                           ; SOURCE LINE # 409
+00D9 0500        R     INC     countx+01H
+00DB E500        R     MOV     A,countx+01H
+00DD 7002              JNZ     ?C0066
+00DF 0500        R     INC     countx
+00E1         ?C0066:
+                                           ; SOURCE LINE # 412
+00E1 E4                CLR     A
+00E2 F500        R     MOV     counter,A
+00E4 F500        R     MOV     counter+01H,A
+00E6         ?C0050:
+00E6 C3                CLR     C
+00E7 E500        R     MOV     A,counter+01H
+00E9 9500        R     SUBB    A,dlc
+00EB E500        R     MOV     A,counter
+00ED 9400              SUBB    A,#00H
+00EF 501B              JNC     ?C0051
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 19  
+
+                                           ; SOURCE LINE # 414
+00F1 7BFF              MOV     R3,#0FFH
+00F3 7A00        R     MOV     R2,#HIGH ?SC_61
+00F5 7900        R     MOV     R1,#LOW ?SC_61
+00F7 7400        R     MOV     A,#LOW can_data
+00F9 2500        R     ADD     A,counter+01H
+00FB F8                MOV     R0,A
+00FC E6                MOV     A,@R0
+00FD F500        E     MOV     ?_printf?BYTE+03H,A
+00FF 120000      E     LCALL   _printf
+                                           ; SOURCE LINE # 415
+0102 0500        R     INC     counter+01H
+0104 E500        R     MOV     A,counter+01H
+0106 70DE              JNZ     ?C0050
+0108 0500        R     INC     counter
+010A         ?C0067:
+010A 80DA              SJMP    ?C0050
+010C         ?C0051:
+                                           ; SOURCE LINE # 417
+010C 7BFF              MOV     R3,#0FFH
+010E 7A00        R     MOV     R2,#HIGH ?SC_64
+0110 7900        R     MOV     R1,#LOW ?SC_64
+0112 120000      E     LCALL   _printf
+                                           ; SOURCE LINE # 418
+                                           ; SOURCE LINE # 420
+0115         ?C0041:
+                                           ; SOURCE LINE # 422
+0115 200003      R     JB      can_tx_ready,$ + 6H
+0118 020000      R     LJMP    ?C0037
+011B E500        R     MOV     A,FLAG_tempo+01H
+011D 4500        R     ORL     A,FLAG_tempo
+011F 7003              JNZ     $ + 5H
+0121 020000      R     LJMP    ?C0037
+                                           ; SOURCE LINE # 423
+0124 120000      R     LCALL   send_data
+                                           ; SOURCE LINE # 424
+                                           ; SOURCE LINE # 425
+0127 020000      R     LJMP    ?C0037
+             ; FUNCTION main (END)
+
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 20  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+T0 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B4H  1
+AC . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D6H  1
+counter. . . . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    0000H  2
+T1 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B5H  1
+char_counter . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    0002H  2
+T2 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0094H  1
+ECM0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00ECH  1
+EA . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00AFH  1
+ECM1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00EDH  1
+ECM2 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00EEH  1
+CMI0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00CCH  1
+CMI1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00CDH  1
+CMI2 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00CEH  1
+T20V . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00CFH  1
+ECT0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00E8H  1
+sub_can_id . . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    0004H  2
+tempo_counter. . . . . . . . . . . . .  PUBLIC   DATA   INT      0006H  2
+can_config . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  retour . . . . . . . . . . . . . . .  * REG *  DATA   U_CHAR   0007H  1
+ECT1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00E9H  1
+ECT2 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00EAH  1
+ECT3 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00EBH  1
+CTI0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C8H  1
+CT0I . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0090H  1
+PCM0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00FCH  1
+size_t . . . . . . . . . . . . . . . .  TYPEDEF  -----  U_INT    -----  2
+CTI1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C9H  1
+CT1I . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0091H  1
+PCM1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00FDH  1
+CTI2 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00CAH  1
+CT2I . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0092H  1
+PCM2 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00FEH  1
+CTI3 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00CBH  1
+CT3I . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0093H  1
+can_partner. . . . . . . . . . . . . .  ABSBIT   -----  BIT      0000H  1
+receive_int. . . . . . . . . . . . . .  ABSBIT   -----  BIT      0008H  1
+CMT0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C6H  1
+CMT1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C7H  1
+RD . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B7H  1
+PCT0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00F8H  1
+PCT1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00F9H  1
+led_pattern. . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    0008H  2
+PCT2 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00FAH  1
+RI . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0098H  1
+PCT3 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00FBH  1
+INT0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B2H  1
+CY . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D7H  1
+CAN_TX_COMPLETE. . . . . . . . . . . .  ABSBIT   -----  BIT      00DBH  1
+TI . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0099H  1
+INT1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B3H  1
+INT2 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0090H  1
+CANInitialisation. . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+INT3 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0091H  1
+INT4 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0092H  1
+CTX0 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0096H  1
+INT5 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0093H  1
+CTX1 . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0097H  1
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 21  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+FLAG_tempo . . . . . . . . . . . . . .  PUBLIC   DATA   INT      000AH  2
+countx . . . . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    000CH  2
+can_buffrx . . . . . . . . . . . . . .  PUBLIC   DATA   ARRAY    000EH  20
+transmit_int . . . . . . . . . . . . .  ABSBIT   -----  BIT      0009H  1
+OV . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D2H  1
+main . . . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+send_data. . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+WR . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B6H  1
+CANADR . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00DBH  1
+CANDAT . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00DAH  1
+can_data . . . . . . . . . . . . . . .  PUBLIC   DATA   ARRAY    0022H  8
+dlc. . . . . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   002AH  1
+CANCON . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D9H  1
+TMOD . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   0089H  1
+tx_message . . . . . . . . . . . . . .  PUBLIC   DATA   ARRAY    002BH  10
+can_event. . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0001H  1
+can_init_request . . . . . . . . . . .  PUBLIC   DATA   BIT      0000H  1
+CANSTA . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   00D8H  1
+IE0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0089H  1
+IE1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008BH  1
+can_tx_complete. . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+overrun_int. . . . . . . . . . . . . .  ABSBIT   -----  BIT      000BH  1
+ES0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00ACH  1
+ET0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00A9H  1
+ES1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00ADH  1
+ET1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00ABH  1
+EAD. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00AEH  1
+TF0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008DH  1
+can_system_error . . . . . . . . . . .  PUBLIC   DATA   BIT      0001H  1
+ET2. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00EFH  1
+TF1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008FH  1
+RB8. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      009AH  1
+TH0. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008CH  1
+EX0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00A8H  1
+IT0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0088H  1
+can_tx_sending . . . . . . . . . . . .  ABSBIT   -----  BIT      0004H  1
+TB8. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      009BH  1
+EX1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00AAH  1
+IT1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008AH  1
+P. . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D0H  1
+time_over. . . . . . . . . . . . . . .  PUBLIC   DATA   BIT      0002H  1
+SM0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      009FH  1
+TL0. . . . . . . . . . . . . . . . . .  SFR      DATA   U_CHAR   008AH  1
+SM1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      009EH  1
+RAMA0. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D8H  1
+SM2. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      009DH  1
+RAMA1. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D9H  1
+PS0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00BCH  1
+timer0 . . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+can_contr_init . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+can_com. . . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0000H  1
+RAMA2. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00DAH  1
+PT0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B9H  1
+PS1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00BDH  1
+LED. . . . . . . . . . . . . . . . . .  PUBLIC   XDATA  U_INT    FD00H  2
+RAMA3. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00DBH  1
+PT1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00BBH  1
+C51 COMPILER V6.14  FONCTIONSBASES2                                                        11/05/2018 12:22:44 PAGE 22  
+
+NAME                                    CLASS   MSPACE  TYPE    OFFSET  SIZE
+====                                    =====   ======  ====    ======  ====
+
+
+PAD. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00BEH  1
+RS0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D3H  1
+_send_message. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+  tabtx. . . . . . . . . . . . . . . .  * REG *  DATA   PTR      0001H  3
+RAMA4. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00DCH  1
+PT2. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00FFH  1
+TR0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008CH  1
+RS1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D4H  1
+RAMA5. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00DDH  1
+TR1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      008EH  1
+RAMA6. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00DEH  1
+RT2. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      0095H  1
+PX0. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B8H  1
+RAMA7. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00DFH  1
+PX1. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00BAH  1
+error_int. . . . . . . . . . . . . . .  ABSBIT   -----  BIT      000AH  1
+CAN_ERROR_STAT . . . . . . . . . . . .  ABSBIT   -----  BIT      00DEH  1
+int_save . . . . . . . . . . . . . . .  PUBLIC   DATA   U_CHAR   0001H  1
+can_int. . . . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+can_id . . . . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    0035H  2
+CAN_BUS_STATUS . . . . . . . . . . . .  ABSBIT   -----  BIT      00DFH  1
+REN. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      009CH  1
+CMSR0. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C0H  1
+CMSR1. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C1H  1
+can_buf_full . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+CMSR2. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C2H  1
+tx_data. . . . . . . . . . . . . . . .  PUBLIC   DATA   ARRAY    0037H  27
+CMSR3. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C3H  1
+address. . . . . . . . . . . . . . . .  PUBLIC   DATA   U_INT    0052H  2
+CMSR4. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C4H  1
+init_timer0. . . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+CMSR5. . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00C5H  1
+can_int_error. . . . . . . . . . . . .  PUBLIC   CODE   PROC     0000H  -----
+RXD. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B0H  1
+TXD. . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00B1H  1
+frame_data_length. . . . . . . . . . .  PUBLIC   DATA   U_INT    0054H  2
+F0 . . . . . . . . . . . . . . . . . .  ABSBIT   -----  BIT      00D5H  1
+_printf. . . . . . . . . . . . . . . .  EXTERN   CODE   PROC     -----  -----
+can_rx_ready . . . . . . . . . . . . .  ABSBIT   -----  BIT      0002H  1
+can_tx_ready . . . . . . . . . . . . .  ABSBIT   -----  BIT      0003H  1
+CAN_TX_BUFFER. . . . . . . . . . . . .  ABSBIT   -----  BIT      00DAH  1
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    737    ----
+   CONSTANT SIZE    =     66    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     88    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      3    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
